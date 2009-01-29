@@ -1,0 +1,11 @@
+:host: www1.networktext.com
+:user: tunnel
+:tunnels:
+    - :type: :local
+      :local_port: 80
+      :remote_port: 80
+      :remote_host: 127.0.0.1
+    - :type: :local
+      :local_port: 80
+      :remote_port: 80
+      :remote_host: 127.0.0.1
