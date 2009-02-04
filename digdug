@@ -1,0 +1,3 @@
+#!/bin/sh
+
+ruby dig_dug_daemon.rb $@

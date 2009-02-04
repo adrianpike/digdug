@@ -1,13 +1,9 @@
-#ssh -f -g -L 31337:127.0.0.1:3306  \
-#        -L 31338:127.0.0.1:389 \
-#        -L 22122:192.168.30.4:22122 \
-#        tunnel@www1.networktext.com \
-#        ./keepalive.sh
-
 require 'yaml'
 require 'socket'
 
 class DigDug
+    VERSION=0.1
+    
     CONFIG_DEFAULTS={
         :sleep_time=>10,
         :ssh_command=>'ssh',
@@ -18,8 +14,8 @@ class DigDug
         :tunnels=>[{:type=>:local,:local_port=>31337,:remote_port=>3306,:remote_host=>'127.0.0.1'}]
     }
     
-    def initialize
-        @config=CONFIG_DEFAULTS.merge(File.open( 'config.yml' ) { |yf| YAML::load( yf ) })
+    def initialize(config='config.yml')
+        @config=CONFIG_DEFAULTS.merge(File.open(config) { |yf| YAML::load( yf ) })
         @threads=[]
         @running=true
     end
@@ -30,6 +26,13 @@ class DigDug
            case t[:type]; when :local; '-L '; when :remote; '-R '; end+t[:local_port].to_s+':'+t[:remote_host]+':'+t[:remote_port].to_s
     end
     
+    def close_tunnel(tunnel)
+       if tunnel[:thread] then
+           Process.kill(9,t)
+           Process.wait(t)
+       end
+    end
+    
     def open_tunnel(tunnel)
         printf "Opening tunnel to #{tunnel[:remote_host]}:#{tunnel[:remote_port]}...\n"
         cmd = @config[:ssh_command]
@@ -38,14 +41,16 @@ class DigDug
         flags << @config[:user]+'@'+@config[:host]
         flags << @config[:background_command]
         flags << ">/dev/null"
-        @threads << Kernel.fork {
+        tunnel[:thread] = Kernel.fork {
             system(cmd, *flags)
         }
+        @threads << tunnel[:thread]
     end
     
     def bring_up_tunnels
        @config[:tunnels].collect{|t| 
            if not tunnel_alive?(t) then
+             close_tunnel(t)
              open_tunnel(t)
            end
         }
@@ -67,24 +72,21 @@ class DigDug
     end
     
     def run
-        begin
        while @running
            bring_up_tunnels
            sleep @config[:sleep_time]
        end 
        shutdown
-        rescue Interrupt
-         shutdown
-        end
     end
     
     def shutdown
-       @threads.each {|t|
-           Process.kill(9,t)
-           Process.wait(t)
+        @running=false
+        @threads.each {|t|
+            begin
+               Process.kill(9,t)
+               Process.wait(t)
+            rescue
+            end
            }
     end
 end
-
-d=DigDug.new
-d.run
