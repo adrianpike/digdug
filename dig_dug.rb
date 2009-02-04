@@ -7,7 +7,7 @@ class DigDug
     CONFIG_DEFAULTS={
         :sleep_time=>10,
         :ssh_command=>'ssh',
-        :ssh_flags=>['-g'],
+        :ssh_flags=>'-g',
         :background_command=>'./keepalive.sh',
         :user=>'adrian',
         :host=>'localhost',
@@ -36,13 +36,14 @@ class DigDug
     def open_tunnel(tunnel)
         printf "Opening tunnel to #{tunnel[:remote_host]}:#{tunnel[:remote_port]}...\n"
         cmd = @config[:ssh_command]
-        flags = @config[:ssh_flags]
-        flags << tunnel_command(tunnel)
-        flags << @config[:user]+'@'+@config[:host]
-        flags << @config[:background_command]
-        flags << ">/dev/null"
+        cmd += " " + @config[:ssh_flags]
+        cmd += " " + tunnel_command(tunnel)
+        cmd += " " + @config[:user]+'@'+@config[:host]
+        cmd += " " + @config[:background_command]
+        cmd += " " + ">/dev/null"
+        printf "\n\n\nCommand is #{cmd}\n\n\n"
         tunnel[:thread] = Kernel.fork {
-            system(cmd, *flags)
+            system(cmd)
         }
         @threads << tunnel[:thread]
     end
